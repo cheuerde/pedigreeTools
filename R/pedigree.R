@@ -51,19 +51,24 @@ pedigree <- function(sire, dam, label, selfing_generation = NULL) {
         label <- fixed_ped$label
     }
     
+    # Save original character values before integer conversion
+    sire_chr <- as.character(sire)
+    dam_chr <- as.character(dam)
+    label_chr <- as.character(label)
+
     # Proceed with creating the pedigree object
     tryCatch({
         sire <- as.integer(factor(sire, levels = label))
         dam <- as.integer(factor(dam, levels = label))
         sire[sire < 1 | sire > n] <- NA
         dam[dam < 1 | dam > n] <- NA
-        
+
         # Initialize generation with NAs
         generation <- rep(NA_integer_, n)
-        
-        ped_out = new("pedigree", 
-            sire = sire, 
-            dam = dam, 
+
+        ped_out = new("pedigree",
+            sire = sire,
+            dam = dam,
             label = as.character(label),
             generation = as.integer(generation),
             selfing_generation = as.integer(selfing_generation),
@@ -71,28 +76,30 @@ pedigree <- function(sire, dam, label, selfing_generation = NULL) {
         ped_out = getGeneration(ped_out)
         return(ped_out)
     }, error = function(e) {
-        # If validation fails, try using editPed
+        # If validation fails (e.g. parents not before children), use editPed
+        # to reorder. Must use original character sire/dam, NOT the integer
+        # indices from the tryCatch body above.
         message("Initial pedigree creation failed. Attempting to fix with editPed...")
-        fixed_ped <- editPed(sire = sire, dam = dam, label = label)
-        
+        fixed_ped <- editPed(sire = sire_chr, dam = dam_chr, label = label_chr)
+
         # Map the original selfing_generation to the new order
         selfing_generation_tmp <- rep(0, nrow(fixed_ped))
-        selfing_generation_tmp[match(label, fixed_ped$label)] <- selfing_generation
+        selfing_generation_tmp[match(label_chr, fixed_ped$label)] <- selfing_generation
         selfing_generation = selfing_generation_tmp
-        
+
         sire <- as.integer(factor(fixed_ped$sire, levels = fixed_ped$label))
         dam <- as.integer(factor(fixed_ped$dam, levels = fixed_ped$label))
         sire[sire < 1 | sire > nrow(fixed_ped)] <- NA
         dam[dam < 1 | dam > nrow(fixed_ped)] <- NA
-        
-        ped_out <- new("pedigree", 
-            sire = sire, 
-            dam = dam, 
+
+        ped_out <- new("pedigree",
+            sire = sire,
+            dam = dam,
             label = as.character(fixed_ped$label),
             generation = as.integer(fixed_ped$generation),
             selfing_generation = as.integer(selfing_generation),
             expanded = rep(FALSE, nrow(fixed_ped)))
-        
+
         ped_out <- getGeneration(ped_out)
         return(ped_out)
     })
