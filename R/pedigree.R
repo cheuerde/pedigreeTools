@@ -6,11 +6,11 @@ NULL
 #' @description A simple constructor for a pedigree object. The main point for
 #'   the constructor is to use coercions to make the calls easier.
 #'
-#' @param sire integer vector or factor representation of the sires
-#' @param dam integer vector or factor representation of the dams
+#' @param sire character vector of sire labels (values must occur in \code{label}, or be NA for unknown)
+#' @param dam character vector of dam labels (values must occur in \code{label}, or be NA for unknown)
 #' @param label character vector of individual labels
 #' @param selfing_generation integer vector of selfing generations (optional)
-#' @return an pedigree object of class \linkS4class{pedigree}
+#' @return a pedigree object of class \linkS4class{pedigree}
 #' @note \code{sire}, \code{dam}, \code{label}, and \code{selfing_generation} (if provided) must all have the
 #'   same length and all labels in \code{sire} and \code{dam} must occur
 #'   in \code{label}
@@ -640,9 +640,9 @@ getGenAncestors <- function(ped, id, ngen = NULL) {
 #'   1) adding labels for the sires and dams not listed as labels before and
 #'   2) ordering pedigree based on recursive calls to \code{\link{getGenAncestors}}.
 #'
-#' @param sire integer vector or factor representation of the sires
-#' @param dam integer vector or factor representation of the dams
-#' @param label character vector of labels
+#' @param sire character vector of sire labels (values must occur in \code{label}, or be NA for unknown)
+#' @param dam character vector of dam labels (values must occur in \code{label}, or be NA for unknown)
+#' @param label character vector of individual labels
 #' @param verbose logical to print the row of the pedigree that the
 #'   function is ordering. Default is FALSE.
 #' @return a data frame with the pedigree ordered.
