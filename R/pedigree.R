@@ -673,20 +673,11 @@ editPed <- function(sire, dam, label, verbose = FALSE) {
     label <-1:nped
     sire[!is.na(sire) & (sire < 1 | sire > nped)] <- NA
     dam[!is.na(dam) & (dam < 1 | dam > nped)] <- NA
-    ped <- data.frame(id = label, sire = sire, dam = dam,
-                      generation = rep(NA, times = nped))
-    noParents <- (is.na(ped$sire) & is.na(ped$dam))
-    ped$generation[noParents] <- 0
-    for (i in 1:nped) {
-        if(verbose) print(i)
-        if(is.na(ped$generation[i])){
-            id <-ped$id[i]
-            ped <-getGenAncestors(ped, id)
-        }
-    }
-    ord <- order(ped$generation)
+    # Use C get_generation for fast generation computation
+    generation <- .Call(get_generation, sire, dam, as.character(label))
+    ord <- order(generation)
     ans <- data.frame(label = labelOl, sire = sireOl, dam = damOl,
-                      generation = ped$generation, stringsAsFactors = FALSE)
+                      generation = generation, stringsAsFactors = FALSE)
     ans[ord,]
 }
 
