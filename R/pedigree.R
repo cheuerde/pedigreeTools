@@ -33,11 +33,13 @@ pedigree <- function(sire, dam, label, selfing_generation = NULL) {
     }
     
     # Try initial checks, if they fail, use editPed
+    # Use a set for fast membership testing
+    label_set <- c(as.character(label), NA_character_, "0")
     if (!all(
         n == length(dam),
         n == length(label),
-        all(sire %in% labelex),
-        all(dam %in% labelex)
+        all(match(as.character(sire), label_set, nomatch = 0L) > 0L),
+        all(match(as.character(dam), label_set, nomatch = 0L) > 0L)
     )) {
         message("Initial pedigree checks failed. Attempting to fix with editPed...")
         fixed_ped <- editPed(sire = sire, dam = dam, label = label)
@@ -58,8 +60,8 @@ pedigree <- function(sire, dam, label, selfing_generation = NULL) {
 
     # Proceed with creating the pedigree object
     tryCatch({
-        sire <- as.integer(factor(sire, levels = label))
-        dam <- as.integer(factor(dam, levels = label))
+        sire <- match(as.character(sire), as.character(label))
+        dam <- match(as.character(dam), as.character(label))
         sire[sire < 1 | sire > n] <- NA
         dam[dam < 1 | dam > n] <- NA
 
@@ -87,10 +89,8 @@ pedigree <- function(sire, dam, label, selfing_generation = NULL) {
         selfing_generation_tmp[match(label_chr, fixed_ped$label)] <- selfing_generation
         selfing_generation = selfing_generation_tmp
 
-        sire <- as.integer(factor(fixed_ped$sire, levels = fixed_ped$label))
-        dam <- as.integer(factor(fixed_ped$dam, levels = fixed_ped$label))
-        sire[sire < 1 | sire > nrow(fixed_ped)] <- NA
-        dam[dam < 1 | dam > nrow(fixed_ped)] <- NA
+        sire <- match(fixed_ped$sire, fixed_ped$label)
+        dam <- match(fixed_ped$dam, fixed_ped$label)
 
         ped_out <- new("pedigree",
             sire = sire,
@@ -667,8 +667,8 @@ editPed <- function(sire, dam, label, verbose = FALSE) {
     labelOl <- c(as.character(missingP),as.character(label))
     sireOl <- c(rep(NA, times = length(missingP)), as.character(sire))
     damOl  <- c(rep(NA, times = length(missingP)), as.character(dam))
-    sire <- as.integer(factor(sireOl, levels = labelOl))
-    dam <- as.integer(factor(damOl, levels = labelOl))
+    sire <- match(sireOl, labelOl)
+    dam <- match(damOl, labelOl)
     nped <-length(labelOl)
     label <-1:nped
     sire[!is.na(sire) & (sire < 1 | sire > nped)] <- NA
@@ -770,44 +770,42 @@ getGeneration <- function(ped) {
 #'
 #' @export
 expandPedigreeSelfing <- function(ped, sepChar = '-F', verbose = FALSE) {
-    # Convert pedigree to data frame
-    PED <- ped2DF(ped)
-    
-    # Ensure sire and dam are character vectors, not factors
-    PED$sire <- as.character(PED$sire)
-    PED$dam <- as.character(PED$dam)
+    # Extract slots directly — avoid ped2DF which creates expensive factor columns
+    lab <- ped@label
+    n <- length(lab)
+    sire_chr <- ifelse(is.na(ped@sire), NA_character_, lab[ped@sire])
+    dam_chr  <- ifelse(is.na(ped@dam),  NA_character_, lab[ped@dam])
 
     # Call the C function
-    result <- .Call(expand_pedigree_selfing, 
-                    PED$label, 
-                    PED$sire, 
-                    PED$dam, 
-                    PED$selfing_generation, 
+    result <- .Call(expand_pedigree_selfing,
+                    lab,
+                    sire_chr,
+                    dam_chr,
+                    ped@selfing_generation,
                     sepChar,
                     verbose)
-    
-    # Convert the result to a data frame
-    newPED <- data.frame(
-        label = result[[1]],
-        sire = result[[2]],
-        dam = result[[3]],
-        generation = result[[4]],
-        selfing_generation = result[[5]],
-        expanded = result[[6]],
-        stringsAsFactors = FALSE
-    )
-    
+
+    new_label <- result[[1]]
+    new_sire  <- result[[2]]
+    new_dam   <- result[[3]]
+
+    # Use match() instead of factor() for O(n) integer mapping
+    label_idx <- seq_along(new_label)
+    names(label_idx) <- new_label
+    sire_int <- unname(label_idx[new_sire])
+    dam_int  <- unname(label_idx[new_dam])
+
     # Create new pedigree object
-    newPed <- new("pedigree", 
-                  sire = as.integer(factor(newPED$sire, levels = newPED$label)),
-                  dam = as.integer(factor(newPED$dam, levels = newPED$label)),
-                  label = newPED$label,
-                  generation = newPED$generation,
-                  selfing_generation = as.integer(newPED$selfing_generation),
-                  expanded = newPED$expanded)
-    
+    newPed <- new("pedigree",
+                  sire = as.integer(sire_int),
+                  dam = as.integer(dam_int),
+                  label = new_label,
+                  generation = result[[4]],
+                  selfing_generation = as.integer(result[[5]]),
+                  expanded = result[[6]])
+
     # Calculate and set the generation for the new pedigree
     newPed <- getGeneration(newPed)
-    
+
     return(newPed)
 }

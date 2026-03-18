@@ -126,6 +126,9 @@ SEXP pedigree_inbreeding(SEXP x)
 	if (S == 0 || D == 0) { /* both parents unknown */
 	    F[i] = L[i] = 0; continue;
 	}
+	if (S == D) { /* selfing: sire == dam, F = (1 + F_parent) / 2 */
+	    F[i] = 0.5 * (1.0 + F[S]); L[i] = 0; continue;
+	}
 	if(S == sire[i-2] && D == dam[i-2]) { /* full-sib with last animal */
 	    F[i] = F[i-1]; L[i] = L[i-1]; continue;
 	}
